@@ -254,7 +254,7 @@ enc_canon_table[] =
 #define IDX_KOI8_U	15
     {"koi8-u",		ENC_8BIT,		0},
 #define IDX_UTF8	16
-    {"utf-8",		ENC_UNICODE,		0},
+    {"utf-8",		ENC_UNICODE,		65001},
 #define IDX_UCS2	17
     {"ucs-2",		ENC_UNICODE + ENC_ENDIAN_B + ENC_2BYTE, 0},
 #define IDX_UCS2LE	18
@@ -4385,31 +4385,45 @@ enc_alias_search(char_u *name)
 
 #if defined(FEAT_MBYTE) || defined(PROTO)
 
-# ifdef HAVE_LANGINFO_H
-#  include <langinfo.h>
-# endif
+#ifdef HAVE_LANGINFO_H
+# include <langinfo.h>
+#endif
 
-# ifndef FEAT_GUI_W32
 /*
- * Get the canonicalized encoding from the specified locale string "locale"
- * or from the environment variables LC_ALL, LC_CTYPE and LANG.
+ * Get the canonicalized encoding of the current locale.
  * Returns an allocated string when successful, NULL when not.
  */
     char_u *
-enc_locale_env(char *locale)
+enc_locale(void)
 {
-    char	*s = locale;
+#ifndef WIN3264
+    char	*s;
     char	*p;
     int		i;
+#endif
     char	buf[50];
+#ifdef WIN3264 
+    long	acp = GetACP(); // Get the current locale Terminal!
+
+    if (acp == 1200)
+	STRCPY(buf, "ucs-2le");
+    else if (acp == 1252)	    /* cp1252 is used as latin1 */
+	STRCPY(buf, "latin1");
+    else
+	sprintf(buf, "cp%ld", acp);
+#else
+# ifdef HAVE_NL_LANGINFO_CODESET
+    if ((s = nl_langinfo(CODESET)) == NULL || *s == NUL)
+# endif
+#  if defined(HAVE_LOCALE_H) || defined(X_LOCALE)
+	if ((s = setlocale(LC_CTYPE, NULL)) == NULL || *s == NUL)
+#  endif
+	    if ((s = getenv("LC_ALL")) == NULL || *s == NUL)
+		if ((s = getenv("LC_CTYPE")) == NULL || *s == NUL)
+		    s = getenv("LANG");
 
     if (s == NULL || *s == NUL)
-	if ((s = getenv("LC_ALL")) == NULL || *s == NUL)
-	    if ((s = getenv("LC_CTYPE")) == NULL || *s == NUL)
-		s = getenv("LANG");
-
-    if (s == NULL || *s == NUL)
-	return NULL;
+	return FAIL;
 
     /* The most generic locale format is:
      * language[_territory][.codeset][@modifier][+special][,[sponsor][_revision]]
@@ -4444,46 +4458,12 @@ enc_locale_env(char *locale)
 	    break;
     }
     buf[i] = NUL;
+#endif
 
     return enc_canonize((char_u *)buf);
 }
-# endif
 
-/*
- * Get the canonicalized encoding of the current locale.
- * Returns an allocated string when successful, NULL when not.
- */
-    char_u *
-enc_locale(void)
-{
-# ifdef WIN3264
-    char	buf[50];
-    long	acp = GetACP();
-
-    if (acp == 1200)
-	STRCPY(buf, "ucs-2le");
-    else if (acp == 1252)	    /* cp1252 is used as latin1 */
-	STRCPY(buf, "latin1");
-    else
-	sprintf(buf, "cp%ld", acp);
-
-    return enc_canonize((char_u *)buf);
-# else
-    char	*s;
-
-#  ifdef HAVE_NL_LANGINFO_CODESET
-    if ((s = nl_langinfo(CODESET)) == NULL || *s == NUL)
-#  endif
-#  if defined(HAVE_LOCALE_H) || defined(X_LOCALE)
-	if ((s = setlocale(LC_CTYPE, NULL)) == NULL || *s == NUL)
-#  endif
-	    s = NULL;
-
-    return enc_locale_env(s);
-# endif
-}
-
-# if defined(WIN3264) || defined(PROTO) || defined(FEAT_CYGWIN_WIN32_CLIPBOARD)
+#if defined(WIN3264) || defined(PROTO) || defined(FEAT_CYGWIN_WIN32_CLIPBOARD)
 /*
  * Convert an encoding name to an MS-Windows codepage.
  * Returns zero if no codepage can be figured out.
@@ -4510,7 +4490,7 @@ encname2codepage(char_u *name)
 	return cp;
     return 0;
 }
-# endif
+#endif
 
 # if defined(USE_ICONV) || defined(PROTO)
 
