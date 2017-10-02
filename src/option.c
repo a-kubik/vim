@@ -3604,23 +3604,49 @@ set_init_1(void)
 #  endif
 # endif
 
-    /* enc_locale() will try to find the encoding of the current locale. */
-    p = enc_locale();
-    if (p != NULL)
-    {
-	char_u *save_enc;
+# if defined(WIN3264) && !defined(FEAT_GUI)
+	/* Win32 console: When GetACP() returns a different value from
+	* GetConsoleCP() set 'termencoding'. */
+	if (GetACP() != GetConsoleCP())
+	{
+		char	buf[50];
 
-	/* Try setting 'encoding' and check if the value is valid.
-	 * If not, go back to the default "latin1". */
-	save_enc = p_enc;
-	p_enc = p;
+		sprintf(buf, "cp%ld", (long)GetConsoleCP());
+		p_tenc = vim_strsave((char_u *)buf);
+		if (p_tenc != NULL)
+		{
+			p_enc = p_tenc;
+			opt_idx = findoption((char_u *)"termencoding");
+			if (opt_idx >= 0)
+			{
+				options[opt_idx].def_val[VI_DEFAULT] = p_tenc;
+				options[opt_idx].flags |= P_DEF_ALLOCED;
+			}
+						
+		}
+		else
+# endif
+		{	p_tenc = empty_option;
+		/* enc_locale() will try to find the encoding of the current locale. */
+		p = enc_locale();
+		if (p != NULL)
+		{
+			char_u *save_enc;
+
+			/* Try setting 'encoding' and check if the value is valid.
+			* If not, go back to the default "latin1". */
+			save_enc = p_enc;
+			p_enc = p;
+		}
+	}
+
 	if (STRCMP(p_enc, "gb18030") == 0)
 	{
-	    /* We don't support "gb18030", but "cp936" is a good substitute
-	     * for practical purposes, thus use that.  It's not an alias to
-	     * still support conversion between gb18030 and utf-8. */
-	    p_enc = vim_strsave((char_u *)"cp936");
-	    vim_free(p);
+		/* We don't support "gb18030", but "cp936" is a good substitute
+		* for practical purposes, thus use that.  It's not an alias to
+		* still support conversion between gb18030 and utf-8. */
+		p_enc = vim_strsave((char_u *)"cp936");
+		vim_free(p);
 	}
 	if (mb_init() == NULL)
 	{
@@ -3655,30 +3681,7 @@ set_init_1(void)
 	    }
 #endif
 
-# if defined(WIN3264) && !defined(FEAT_GUI)
-	    /* Win32 console: When GetACP() returns a different value from
-	     * GetConsoleCP() set 'termencoding'. */
-	    if (GetACP() != GetConsoleCP())
-	    {
-		char	buf[50];
 
-		sprintf(buf, "cp%ld", (long)GetConsoleCP());
-		p_tenc = vim_strsave((char_u *)buf);
-		if (p_tenc != NULL)
-		{
-		    opt_idx = findoption((char_u *)"termencoding");
-		    if (opt_idx >= 0)
-		    {
-			options[opt_idx].def_val[VI_DEFAULT] = p_tenc;
-			options[opt_idx].flags |= P_DEF_ALLOCED;
-		    }
-		    convert_setup(&input_conv, p_tenc, p_enc);
-		    convert_setup(&output_conv, p_enc, p_tenc);
-		}
-		else
-		    p_tenc = empty_option;
-	    }
-# endif
 # if defined(WIN3264) && defined(FEAT_MBYTE)
 	    /* $HOME may have characters in active code page. */
 	    init_homedir();
@@ -3689,7 +3692,9 @@ set_init_1(void)
 	    vim_free(p_enc);
 	    p_enc = save_enc;
 	}
-    }
+	}
+	convert_setup(&input_conv, p_tenc, p_enc);
+	convert_setup(&output_conv, p_enc, p_tenc);
 #endif
 
 #ifdef FEAT_MULTI_LANG
