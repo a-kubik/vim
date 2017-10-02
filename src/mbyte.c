@@ -254,7 +254,7 @@ enc_canon_table[] =
 #define IDX_KOI8_U	15
     {"koi8-u",		ENC_8BIT,		0},
 #define IDX_UTF8	16
-    {"utf-8",		ENC_UNICODE,		0},
+    {"utf-8",		ENC_UNICODE,		65001},
 #define IDX_UCS2	17
     {"ucs-2",		ENC_UNICODE + ENC_ENDIAN_B + ENC_2BYTE, 0},
 #define IDX_UCS2LE	18
