@@ -37,21 +37,21 @@ start /w gvim -u NONE -c "set nocp" %TUTORCOPY%
 GOTO end
 
 :ntaction
-start "dummy" /b /w gvim -u NONE -c "so $VIMRUNTIME/tutor/tutor.vim"
+"%~dp0gvim" -u NONE -c "so $VIMRUNTIME/tutor/tutor.vim"
 IF ERRORLEVEL 1 GOTO use_vim
 
 :: Start gvim without any .vimrc, set 'nocompatible'
-start "dummy" /b /w gvim -u NONE -c "set nocp" %TUTORCOPY%
+"%~dp0gvim" -u NONE -c "set nocp" %TUTORCOPY%
 
 GOTO end
 
 :use_vim
 :: The script tutor.vim tells Vim which file to copy
-call vim -u NONE -c "so $VIMRUNTIME/tutor/tutor.vim"
+"%~dp0vim" vim -u NONE -c "so $VIMRUNTIME/tutor/tutor.vim"
 IF ERRORLEVEL 1 GOTO no_executable
 
 :: Start vim without any .vimrc, set 'nocompatible'
-call vim -u NONE -c "set nocp" %TUTORCOPY%
+"%~dp0vim" -u NONE -c "set nocp" %TUTORCOPY%
 
 GOTO end
 
